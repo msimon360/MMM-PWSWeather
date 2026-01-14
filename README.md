@@ -4,36 +4,29 @@ A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays 
 
 ## Features
 
-- Real-time weather data from Weather Underground Personal Weather Stations
+- Real-time weather data from Weather Underground Personal Weather Stations using an API key
 - Comprehensive weather information including:
   - Current temperature with feels-like temperature
   - Dew point and wind chill
   - Humidity and barometric pressure
-  - Wind speed, gusts, and direction (compass abbreviation)
+  - Wind speed, gusts, and direction (compass arrow)
   - Precipitation rate and daily total
   - UV Index and solar radiation (when available)
   - Station location and elevation
   - Last observation time
+  - color changes based on values (hot, mild, cold, etc.)
 
 ## Installation
 
 1. Navigate to your MagicMirror's `modules` folder:
+2. Clone this repository:
+3. Navigate to the module folder:
+4. Install dependencies:
+   
 ```bash
 cd ~/MagicMirror/modules
-```
-
-2. Clone this repository:
-```bash
 git clone https://github.com/yourusername/MMM-PWSWeather.git
-```
-
-3. Navigate to the module folder:
-```bash
 cd MMM-PWSWeather
-```
-
-4. Install dependencies:
-```bash
 npm install
 ```
 
@@ -62,6 +55,9 @@ Add the module to your `config/config.js` file:
 | `updateInterval` | How often to fetch new data (milliseconds) | `300000` (5 min) | No |
 
 ## Getting a Weather Underground API Key
+
+If you have a Personal Weather Station that reports to Weather Underground you can get an API key with your FREE account.
+You can also get an API key with a paid subscription to pull data from other Weather Stations.
 
 1. Go to [Weather Underground](https://www.wunderground.com/)
 2. Sign up or log in to your account
