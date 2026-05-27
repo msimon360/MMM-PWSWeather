@@ -2,6 +2,9 @@
 
 A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays real-time weather data from your personal Weather Underground station.
 
+## Screenshot
+![MMM-PWSWeather](screenshots/ScreenshotPWSWeather.png)
+
 ## Features
 
 - Real-time weather data from Weather Underground Personal Weather Stations
