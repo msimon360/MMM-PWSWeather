@@ -1,6 +1,7 @@
 # MMM-PWSWeather
 
-A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays real-time weather data from your personal Weather Underground station.
+A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays real-time weather data from your __Personal Weather Station__ at [Weather Underground](https://www.wunderground.com).
+The **provider** can be used by the default weather module and other weather modules that support the weatherProvider configuration option.
 
 ## Screenshot
 ![MMM-PWSWeather](screenshots/ScreenshotPWSWeather.png)
@@ -8,6 +9,7 @@ A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays 
 ## Features
 
 - Real-time weather data from Weather Underground Personal Weather Stations
+- Provider can be used with other modules.
 - Comprehensive weather information including:
   - Current temperature with feels-like temperature
   - Dew point and wind chill
@@ -18,27 +20,29 @@ A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays 
   - Station location and elevation
   - Last observation time
 
-## Installation
+## Install
 
-1. Navigate to your MagicMirror's `modules` folder:
 ```bash
-cd ~/MagicMirror/modules
-```
-
-2. Clone this repository:
-```bash
+cd ~/MagicMirror/modules/
 git clone https://github.com/msimon360/MMM-PWSWeather
-```
-
-3. Navigate to the module folder:
-```bash
 cd MMM-PWSWeather
-```
-
-4. Install dependencies:
-```bash
 npm install
 ```
+
+## Use Provider Only
+
+To use the provider:
+
+```bash
+cp ~/MagicMirror/modules/MMM-PWSWeather/pws.js ~/MagicMirror/modules/default/weather/providers/
+```
+
+and set
+```ini
+weatherProvider: "pws"
+```
+
+in the config section of the weather module you are using in your config.js .
 
 ## Configuration
 
