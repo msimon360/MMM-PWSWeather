@@ -105,6 +105,35 @@ async function run () {
 		assert.match(error.message, /current/i);
 	}
 
+	// MagicMirror display units=imperial must map to WU units=e (not send "imperial")
+	{
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			units: "imperial"
+		});
+		provider.setCallbacks(() => {}, () => {});
+		provider.initialize();
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		assert.ok(fetcher.url.includes("units=e"), `expected units=e, got ${fetcher.url}`);
+		assert.ok(!fetcher.url.includes("units=imperial"));
+	}
+
+	// MagicMirror display units=metric maps to WU units=m
+	{
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			units: "metric"
+		});
+		provider.setCallbacks(() => {}, () => {});
+		provider.initialize();
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		assert.ok(fetcher.url.includes("units=m"), `expected units=m, got ${fetcher.url}`);
+	}
+
 	// Happy path: imperial observation converted to metric
 	{
 		let data = null;
@@ -112,7 +141,7 @@ async function run () {
 			apiKey: "x".repeat(32),
 			stationId: "KTEST123",
 			type: "current",
-			units: "e",
+			apiUnits: "e",
 			updateInterval: 60000
 		});
 		provider.setCallbacks((payload) => { data = payload; }, (err) => {
@@ -125,6 +154,7 @@ async function run () {
 		assert.ok(fetcher, "HTTPFetcher should be created");
 		assert.ok(fetcher.url.includes("stationId=KTEST123"));
 		assert.ok(fetcher.url.includes("apiKey="));
+		assert.ok(fetcher.url.includes("units=e"));
 		assert.equal(fetcher.started, true);
 
 		const responseHandlers = fetcher.listeners("response");
@@ -156,7 +186,7 @@ async function run () {
 			apiKey: "x".repeat(32),
 			stationId: "KTEST123",
 			type: "current",
-			units: "m"
+			apiUnits: "m"
 		});
 		provider.setCallbacks((payload) => { data = payload; }, () => {});
 		provider.initialize();

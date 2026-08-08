@@ -51,13 +51,14 @@ Then configure the weather module:
     type: "current",
     apiKey: "your-weather-underground-api-key",
     stationId: "your-station-ID",
-    units: "e",              // PWS API request units: e=imperial, m=metric, h=uk hybrid
+    units: "imperial",       // MagicMirror display units (metric|imperial)
+    // apiUnits: "m",        // optional WU API units override: e|m|h
     updateInterval: 300000   // 5 minutes
   }
 }
 ```
 
-> **Note:** The weather module always consumes metric values (Celsius, m/s, mm). This provider converts from the PWS response automatically. The `units` option only controls which unit system the Weather Underground API returns.
+> **Note:** MagicMirror `units` (`metric` / `imperial`) is for display only. This provider maps that to Weather Underground’s `e` / `m` API codes automatically. Use optional `apiUnits` (`e`|`m`|`h`) only if you need to force the API unit system. Values are always normalized to metric for the weather module.
 
 Only `type: "current"` is supported (PWS current observations do not include forecasts).
 
@@ -91,7 +92,8 @@ Add the module to your `config/config.js` file:
 | `apiKey` | Your Weather Underground API key | - | **Yes** |
 | `stationId` | Your Weather Underground station ID | - | **Yes** |
 | `updateInterval` | How often to fetch new data (milliseconds) | `300000` (5 min) | No |
-| `units` | PWS API units (`e`, `m`, or `h`). Provider converts to metric for the weather module. | `e` | No |
+| `units` | MagicMirror display units (`metric` or `imperial`). Mapped to WU API units automatically when used as a weather provider. | MagicMirror config | No |
+| `apiUnits` | Optional Weather Underground API units override (`e`, `m`, or `h`) | derived from `units`, else `m` | No |
 
 ## Getting a Weather Underground API Key
 If you have a Personal Weather Station that reports to Weather Underground

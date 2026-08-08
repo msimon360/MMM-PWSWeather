@@ -20,7 +20,9 @@ class PWSProvider {
 		this.config = {
 			stationId: "",
 			apiKey: "",
-			units: "e", // PWS API units: e=imperial, m=metric, h=uk hybrid
+			// Optional override for the Weather Underground API units param (e|m|h).
+			// Do not confuse with MagicMirror's display `units` (metric|imperial).
+			apiUnits: null,
 			type: "current",
 			updateInterval: 10 * 60 * 1000,
 			...config
@@ -118,10 +120,36 @@ class PWSProvider {
 		const url = new URL("https://api.weather.com/v2/pws/observations/current");
 		url.searchParams.set("stationId", this.config.stationId);
 		url.searchParams.set("format", "json");
-		url.searchParams.set("units", this.config.units || "e");
+		// Weather Underground only accepts e|m|h. MagicMirror's config.units is
+		// metric|imperial for display, so map (or ignore) it for the API call.
+		url.searchParams.set("units", this.#getApiUnits());
 		url.searchParams.set("apiKey", this.config.apiKey);
 		url.searchParams.set("numericPrecision", "decimal");
 		return url.toString();
+	}
+
+	/**
+	 * Resolve Weather Underground `units` query value.
+	 * Prefer explicit `apiUnits`, else map MagicMirror display units, else metric.
+	 * @returns {"e"|"m"|"h"}
+	 */
+	#getApiUnits () {
+		const explicit = this.config.apiUnits || this.config.pwsUnits;
+		if (explicit === "e" || explicit === "m" || explicit === "h") {
+			return explicit;
+		}
+
+		// Legacy: some configs set units to the PWS codes directly.
+		if (this.config.units === "e" || this.config.units === "m" || this.config.units === "h") {
+			return this.config.units;
+		}
+
+		if (this.config.units === "imperial") {
+			return "e";
+		}
+
+		// Default to metric API response; provider already normalizes to °C / m/s / mm.
+		return "m";
 	}
 
 	#handleResponse (data) {
