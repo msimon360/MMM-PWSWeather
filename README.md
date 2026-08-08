@@ -1,7 +1,9 @@
 # MMM-PWSWeather
 
-A [MagicMirror²](https://github.com/MichMich/MagicMirror) module that displays real-time weather data from your __Personal Weather Station__ at [Weather Underground](https://www.wunderground.com).
-The **provider** can be used by the default weather module and other weather modules that support the weatherProvider configuration option.
+A [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) module that displays real-time weather data from your __Personal Weather Station__ at [Weather Underground](https://www.wunderground.com).
+The **provider** can be used by the default weather module and other weather modules that support the `weatherProvider` configuration option.
+
+**Requires MagicMirror² v2.35.0+** for the weather provider (server-side provider API).
 
 ## Screenshot
 ![MMM-PWSWeather](screenshots/ScreenshotPWSWeather.png)
@@ -9,7 +11,7 @@ The **provider** can be used by the default weather module and other weather mod
 ## Features
 
 - Real-time weather data from Weather Underground Personal Weather Stations
-- Provider can be used with other modules.
+- Provider can be used with the built-in weather module
 - Comprehensive weather information including:
   - Current temperature with feels-like temperature
   - Dew point and wind chill
@@ -31,20 +33,42 @@ npm install
 
 ## Use Provider Only
 
-To use the provider:
+Weather providers in MagicMirror² v2.35.0+ run as **server-side Node.js classes**. Copy the provider into MagicMirror's built-in weather providers directory:
 
 ```bash
-cp ~/MagicMirror/modules/MMM-PWSWeather/pws.js ~/MagicMirror/modules/default/weather/providers/
+cp ~/MagicMirror/modules/MMM-PWSWeather/pws.js \
+  ~/MagicMirror/defaultmodules/weather/providers/
 ```
 
-and set
-```ini
-weatherProvider: "pws"
+Then configure the weather module:
+
+```javascript
+{
+  module: "weather",
+  position: "top_right",
+  config: {
+    weatherProvider: "pws",
+    type: "current",
+    apiKey: "your-weather-underground-api-key",
+    stationId: "your-station-ID",
+    units: "e",              // PWS API request units: e=imperial, m=metric, h=uk hybrid
+    updateInterval: 300000   // 5 minutes
+  }
+}
 ```
 
-in the config section of the weather module you are using in your config.js .
+> **Note:** The weather module always consumes metric values (Celsius, m/s, mm). This provider converts from the PWS response automatically. The `units` option only controls which unit system the Weather Underground API returns.
 
-## Configuration
+Only `type: "current"` is supported (PWS current observations do not include forecasts).
+
+To keep git from overwriting a custom provider on MagicMirror updates:
+
+```bash
+git -C ~/MagicMirror update-index --assume-unchanged \
+  defaultmodules/weather/providers/pws.js
+```
+
+## Configuration (standalone module)
 
 Add the module to your `config/config.js` file:
 
@@ -67,6 +91,7 @@ Add the module to your `config/config.js` file:
 | `apiKey` | Your Weather Underground API key | - | **Yes** |
 | `stationId` | Your Weather Underground station ID | - | **Yes** |
 | `updateInterval` | How often to fetch new data (milliseconds) | `300000` (5 min) | No |
+| `units` | PWS API units (`e`, `m`, or `h`). Provider converts to metric for the weather module. | `e` | No |
 
 ## Getting a Weather Underground API Key
 If you have a Personal Weather Station that reports to Weather Underground
@@ -109,6 +134,10 @@ This means your API key is invalid or incorrectly entered. Check that:
 - Confirm your station is online and reporting
 - Try a different nearby station ID to test
 - Check the MagicMirror logs for JavaScript errors
+
+### Provider fails after upgrading MagicMirror to v2.35.0
+
+MagicMirror v2.35.0 removed the client-side `WeatherProvider.register(...)` API. Re-copy `pws.js` from this module (v2.0.0+) into `defaultmodules/weather/providers/` and restart MagicMirror.
 
 ## License
 
