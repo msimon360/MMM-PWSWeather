@@ -202,7 +202,13 @@ class PWSProvider {
 			uvIndex: obs.uv ?? null
 		};
 
-		const feelsLike = values.heatIndex ?? values.windChill ?? values.temp;
+		// Heat index applies when warm; wind chill when cold. WU often populates both.
+		let feelsLike = values.temp;
+		if (temperature != null && temperature <= 10) {
+			feelsLike = values.windChill ?? values.temp;
+		} else if (temperature != null && temperature >= 27) {
+			feelsLike = values.heatIndex ?? values.temp;
+		}
 		if (feelsLike != null) {
 			current.feelsLikeTemp = this.#toCelsius(feelsLike, unitSystem);
 		}
