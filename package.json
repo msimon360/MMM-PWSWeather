@@ -1,6 +1,6 @@
 {
   "name": "mmm-pwsweather",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "A [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) module that displays real-time weather data from your personal Weather Underground station. Includes a v2.35+ weather provider.",
   "main": "MMM-PWSWeather.js",
   "scripts": {

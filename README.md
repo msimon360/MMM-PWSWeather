@@ -3,7 +3,7 @@
 A [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) module that displays real-time weather data from your __Personal Weather Station__ at [Weather Underground](https://www.wunderground.com).
 The **provider** can be used by the default weather module and other weather modules that support the `weatherProvider` configuration option.
 
-**Requires MagicMirror² v2.35.0+** for the weather provider (server-side provider API). MagicMirror 2.38.0 changed `HTTPFetcher` so it must be constructed with `{ url }` or `{ urlFactory }`. This provider supports that constructor and the earlier `(url, options)` form.
+**Requires MagicMirror² v2.35.0+** for the weather provider (server-side provider API). Release 3.0.0 supports MagicMirror 2.38.0, which constructs `HTTPFetcher` with `{ url }` or `{ urlFactory }`, and still accepts the earlier `(url, options)` form.
 
 ## Screenshot
 ![MMM-PWSWeather](screenshots/ScreenshotPWSWeather.png)
