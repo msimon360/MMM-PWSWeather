@@ -137,22 +137,6 @@ This means your API key is invalid or incorrectly entered. Check that:
 - Try a different nearby station ID to test
 - Check the MagicMirror logs for JavaScript errors
 
-### Provider fails after upgrading MagicMirror to v2.35.0
-
-MagicMirror v2.35.0 removed the client-side `WeatherProvider.register(...)` API. Re-copy `pws.js` from this module (v2.0.0+) into `defaultmodules/weather/providers/` and restart MagicMirror.
-
-### `[weather] Failed to initialize weather provider pws: Error: Either url or urlFactory must be provided`
-
-MagicMirror loads `defaultmodules/weather/providers/pws.js`, not the copy in this module. A stack that still says `#initializeFetcher` at `pws.js:92` is that old file calling `new HTTPFetcher(url, options)`. Replace it with this provider and restart MagicMirror:
-
-```bash
-cp ~/MagicMirror/modules/MMM-PWSWeather/pws.js \
-  ~/MagicMirror/defaultmodules/weather/providers/pws.js
-```
-
-### Weather module stays on "Loading"
-
-The built-in weather module only replaces that message after it receives a current observation. Re-copy the current `pws.js` and restart MagicMirror so the observation is delivered again after the module is on screen. If it is still loading after a few seconds, check the MagicMirror log for `[http_fetcher]` or `[pws]` lines from the Weather Underground request.
 
 ## License
 
