@@ -145,6 +145,10 @@ MagicMirror v2.35.0 removed the client-side `WeatherProvider.register(...)` API.
 
 MagicMirror 2.38.0 requires `url` or `urlFactory` inside the `HTTPFetcher` options object. Re-copy the current `pws.js` into `defaultmodules/weather/providers/` and restart MagicMirror. An older copy still calls `new HTTPFetcher(url, options)`, which the new constructor rejects.
 
+### Weather module stays on "Loading"
+
+The built-in weather module only replaces that message after it receives a current observation. Re-copy the current `pws.js` and restart MagicMirror so the observation is delivered again after the module is on screen. If it is still loading after a few seconds, check the MagicMirror log for `[http_fetcher]` or `[pws]` lines from the Weather Underground request.
+
 ## License
 
 MIT License - feel free to use and modify as needed.

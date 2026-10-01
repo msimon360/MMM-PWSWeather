@@ -1,6 +1,11 @@
 const Log = require("logger");
-const { getSunTimes } = require("../provider-utils");
+const { getSunTimes, isDayTime } = require("../provider-utils");
 const HTTPFetcher = require("#http_fetcher");
+
+// The weather module ignores a DOM update that arrives before its wrapper
+// exists, and the first paint then stays on "Loading". Deliver the same
+// observation again once that wrapper is on screen.
+const REDISPLAY_DELAYS_MS = [1000, 3000];
 
 /**
  * Server-side weather provider for Weather Underground Personal Weather Stations (PWS).
@@ -15,6 +20,9 @@ const HTTPFetcher = require("#http_fetcher");
  * (Celsius, m/s, mm); this provider converts from the PWS response as needed.
  */
 class PWSProvider {
+	#lastWeatherData = null;
+	#redisplayTimers = [];
+
 	/**
 	 * @param {object} config - Full weather module config
 	 */
@@ -77,6 +85,10 @@ class PWSProvider {
 			return;
 		}
 
+		// Header text is captured when the provider finishes initializing,
+		// which is before the first observation arrives.
+		this.locationName = this.config.stationId;
+
 		this.#initializeFetcher();
 	}
 
@@ -89,6 +101,7 @@ class PWSProvider {
 	}
 
 	stop () {
+		this.#clearRedisplayTimers();
 		this.fetcher?.clearTimer();
 	}
 
@@ -194,9 +207,7 @@ class PWSProvider {
 			this.locationName = obs.neighborhood || obs.stationID || "PWS";
 
 			const weatherData = this.#generateCurrentWeather(obs);
-			if (weatherData && this.onDataCallback) {
-				this.onDataCallback(weatherData);
-			}
+			this.#publishWeatherData(weatherData);
 		} catch (error) {
 			Log.error("[pws] Error processing weather data:", error);
 			this.onErrorCallback?.({
@@ -239,18 +250,72 @@ class PWSProvider {
 			current.feelsLikeTemp = this.#toCelsius(feelsLike, unitSystem);
 		}
 
-		const lat = obs.lat ?? this.config.lat;
-		const lon = obs.lon ?? this.config.lon;
-		if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
-			const { sunrise, sunset } = getSunTimes(date, lat, lon);
-			current.sunrise = sunrise;
-			current.sunset = sunset;
+		const lat = this.#finiteCoordinate(obs.lat ?? this.config.lat);
+		const lon = this.#finiteCoordinate(obs.lon ?? this.config.lon);
+		if (lat != null && lon != null) {
+			try {
+				const { sunrise, sunset } = getSunTimes(date, lat, lon);
+				current.sunrise = sunrise;
+				current.sunset = sunset;
+				if (sunrise && sunset && typeof isDayTime === "function") {
+					current.weatherType = isDayTime(date, sunrise, sunset) ? "day-sunny" : "night-clear";
+				}
+			} catch (error) {
+				Log.error("[pws] Failed to calculate sunrise/sunset:", error);
+				current.sunrise = null;
+				current.sunset = null;
+			}
 		} else {
 			current.sunrise = null;
 			current.sunset = null;
 		}
 
 		return current;
+	}
+
+	/**
+	 * @param {unknown} value
+	 * @returns {number|null}
+	 */
+	#finiteCoordinate (value) {
+		if (value == null || value === "") {
+			return null;
+		}
+		const coordinate = typeof value === "number" ? value : Number(value);
+		return Number.isFinite(coordinate) ? coordinate : null;
+	}
+
+	/**
+	 * @param {object|null|undefined} weatherData
+	 */
+	#publishWeatherData (weatherData) {
+		if (!weatherData || !this.onDataCallback) {
+			return;
+		}
+
+		this.#lastWeatherData = weatherData;
+		this.onDataCallback(weatherData);
+		this.#scheduleRedisplay();
+	}
+
+	#scheduleRedisplay () {
+		this.#clearRedisplayTimers();
+		for (const delay of REDISPLAY_DELAYS_MS) {
+			const timer = setTimeout(() => {
+				if (this.#lastWeatherData && this.onDataCallback) {
+					this.onDataCallback(this.#lastWeatherData);
+				}
+			}, delay);
+			timer.unref?.();
+			this.#redisplayTimers.push(timer);
+		}
+	}
+
+	#clearRedisplayTimers () {
+		for (const timer of this.#redisplayTimers) {
+			clearTimeout(timer);
+		}
+		this.#redisplayTimers = [];
 	}
 
 	/**

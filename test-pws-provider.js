@@ -25,12 +25,18 @@ Module._load = function (request, parent, isMain) {
 	}
 	if (request === "../provider-utils") {
 		return {
-			getSunTimes: (date, lat, lon) => ({
-				sunrise: new Date(date.getTime() - 6 * 60 * 60 * 1000),
-				sunset: new Date(date.getTime() + 6 * 60 * 60 * 1000),
-				lat,
-				lon
-			})
+			getSunTimes: (date, lat, lon) => {
+				if (lat === 999) {
+					throw new Error("sun failed");
+				}
+				return {
+					sunrise: new Date(date.getTime() - 6 * 60 * 60 * 1000),
+					sunset: new Date(date.getTime() + 6 * 60 * 60 * 1000),
+					lat,
+					lon
+				};
+			},
+			isDayTime: (date, sunrise, sunset) => date >= sunrise && date < sunset
 		};
 	}
 	if (request === "#http_fetcher") {
@@ -262,6 +268,100 @@ async function run () {
 		assert.equal(data.temperature, 21);
 		assert.ok(Math.abs(data.windSpeed - 5) < 0.01, `18 km/h -> 5 m/s, got ${data.windSpeed}`);
 		assert.equal(data.precipitationAmount, 5);
+	}
+
+	// String coordinates still produce sunrise/sunset, and a sun-calc failure
+	// must not swallow the observation (that leaves the module on "Loading").
+	{
+		let data = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, (err) => {
+			throw new Error(`unexpected provider error: ${err.message}`);
+		});
+		provider.initialize();
+		assert.equal(provider.locationName, "KTEST123");
+
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		await fetcher.listeners("response")[0]({
+			json: async () => ({
+				observations: [{
+					stationID: "KTEST123",
+					obsTimeUtc: "2026-04-01T18:00:00Z",
+					neighborhood: "Stringville",
+					lat: "40.7",
+					lon: "-74.0",
+					humidity: 50,
+					winddir: 10,
+					metric: { temp: 12, windSpeed: 0, precipTotal: 0 }
+				}]
+			})
+		});
+		assert.ok(data.sunrise instanceof Date);
+		assert.ok(data.sunset instanceof Date);
+		assert.equal(data.temperature, 12);
+		assert.equal(provider.locationName, "Stringville");
+		provider.stop();
+	}
+
+	{
+		let data = null;
+		let error = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, (err) => { error = err; });
+		provider.initialize();
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		await fetcher.listeners("response")[0]({
+			json: async () => ({
+				observations: [{
+					stationID: "KTEST123",
+					obsTimeUtc: "2026-04-01T18:00:00Z",
+					lat: 999,
+					lon: 10,
+					humidity: 40,
+					metric: { temp: 8, windSpeed: 1, precipTotal: 0 }
+				}]
+			})
+		});
+		assert.equal(error, null);
+		assert.equal(data.temperature, 8);
+		assert.equal(data.sunrise, null);
+		assert.equal(data.sunset, null);
+		provider.stop();
+	}
+
+	// Repeat delivery is scheduled so a weather update that arrives before the
+	// module is in the DOM is not stuck on "Loading".
+	{
+		const delays = [];
+		const originalSetTimeout = global.setTimeout;
+		global.setTimeout = (fn, delay, ...args) => {
+			delays.push(delay);
+			return originalSetTimeout(fn, delay, ...args);
+		};
+		let deliveries = 0;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current"
+		});
+		provider.setCallbacks(() => { deliveries += 1; }, () => {});
+		provider.initialize();
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		await fetcher.listeners("response")[0]({
+			json: async () => makeObs()
+		});
+		global.setTimeout = originalSetTimeout;
+		provider.stop();
+		assert.equal(deliveries, 1);
+		assert.deepEqual(delays, [1000, 3000]);
 	}
 
 	// 304 Not Modified has no body and must not surface as a parse error
