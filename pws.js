@@ -10,8 +10,8 @@ const REDISPLAY_DELAYS_MS = [1000, 3000];
 /**
  * Server-side weather provider for Weather Underground Personal Weather Stations (PWS).
  * Compatible with MagicMirror² v2.35.0+ weather module.
- * v2.38.0 changed HTTPFetcher to `new HTTPFetcher({ url })`; this provider
- * still accepts the v2.35–v2.37 `(url, options)` constructor as well.
+ * v2.38.0 requires `new HTTPFetcher({ url })`. This provider uses that shape
+ * and falls back to the v2.35–v2.37 `(url, options)` constructor when needed.
  *
  * API: https://api.weather.com/v2/pws/observations/current
  * Docs: https://docs.magicmirror.builders/module-development/weather-provider.html
@@ -143,21 +143,25 @@ class PWSProvider {
 
 	/**
 	 * Build an HTTPFetcher for the current MagicMirror version.
-	 * v2.38+ takes one options object and throws unless `url` or `urlFactory`
-	 * is set. v2.35–v2.37 take `(url, options)`. The new signature's only
-	 * parameter has a default, so its constructor length is 0.
+	 * v2.38+ takes `{ url }` and throws "Either url or urlFactory must be provided"
+	 * when the URL is passed as a positional argument. v2.35–v2.37 take
+	 * `(url, options)` and store that first argument on `fetcher.url`.
 	 * @param {string} url
 	 * @param {object} fetcherOptions
 	 * @returns {object}
 	 */
 	#createFetcher (url, fetcherOptions) {
-		if (HTTPFetcher.length === 0) {
-			return new HTTPFetcher({
-				...fetcherOptions,
-				url
-			});
+		const fetcher = new HTTPFetcher({
+			...fetcherOptions,
+			url
+		});
+
+		// 2.38 keeps a URL string. The older constructor keeps the options object.
+		if (typeof fetcher.url === "string") {
+			return fetcher;
 		}
 
+		fetcher.clearTimer?.();
 		return new HTTPFetcher(url, fetcherOptions);
 	}
 

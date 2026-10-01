@@ -4,7 +4,8 @@
   "description": "A [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) module that displays real-time weather data from your personal Weather Underground station. Includes a v2.35+ weather provider.",
   "main": "MMM-PWSWeather.js",
   "scripts": {
-    "test": "node test-pws-provider.js"
+    "test": "node test-pws-provider.js",
+    "install-provider": "node scripts/install-provider.js"
   },
   "keywords": [
     "magicmirror",

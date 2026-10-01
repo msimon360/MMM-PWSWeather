@@ -44,12 +44,12 @@ Module._load = function (request, parent, isMain) {
 			class LegacyHTTPFetcher extends EventEmitter {
 				constructor (url, options = {}) {
 					super();
-					if (typeof url !== "string") {
-						throw new Error("legacy fetcher expected a URL string");
-					}
+					// MagicMirror 2.35–2.37 store the first argument as `url`.
+					// An options object means the caller tried the 2.38 shape first.
 					this.url = url;
-					this.options = options;
+					this.options = typeof url === "string" ? options : url;
 					LegacyHTTPFetcher.lastInstance = this;
+					LegacyHTTPFetcher.constructed.push(typeof url === "string" ? "url" : "options");
 				}
 				startPeriodicFetch (initialDelay = 0) {
 					this.started = true;
@@ -60,6 +60,7 @@ Module._load = function (request, parent, isMain) {
 				}
 			}
 			LegacyHTTPFetcher.lastInstance = null;
+			LegacyHTTPFetcher.constructed = [];
 			globalThis.__MockHTTPFetcher = LegacyHTTPFetcher;
 			return LegacyHTTPFetcher;
 		}
@@ -408,6 +409,7 @@ async function run () {
 
 		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
 		assert.equal(fetcher.constructor.length, 1);
+		assert.deepEqual(fetcher.constructor.constructed, ["options", "url"]);
 		assert.equal(typeof fetcher.url, "string");
 		assert.ok(fetcher.url.includes("stationId=KTEST123"), fetcher.url);
 		assert.ok(fetcher.url.includes("units=e"), fetcher.url);

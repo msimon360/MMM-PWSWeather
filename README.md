@@ -143,7 +143,12 @@ MagicMirror v2.35.0 removed the client-side `WeatherProvider.register(...)` API.
 
 ### `[weather] Failed to initialize weather provider pws: Error: Either url or urlFactory must be provided`
 
-MagicMirror 2.38.0 requires `url` or `urlFactory` inside the `HTTPFetcher` options object. Re-copy the current `pws.js` into `defaultmodules/weather/providers/` and restart MagicMirror. An older copy still calls `new HTTPFetcher(url, options)`, which the new constructor rejects.
+MagicMirror loads `defaultmodules/weather/providers/pws.js`, not the copy in this module. A stack that still says `#initializeFetcher` at `pws.js:92` is that old file calling `new HTTPFetcher(url, options)`. Replace it with this provider and restart MagicMirror:
+
+```bash
+cp ~/MagicMirror/modules/MMM-PWSWeather/pws.js \
+  ~/MagicMirror/defaultmodules/weather/providers/pws.js
+```
 
 ### Weather module stays on "Loading"
 
