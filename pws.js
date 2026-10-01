@@ -5,6 +5,8 @@ const HTTPFetcher = require("#http_fetcher");
 /**
  * Server-side weather provider for Weather Underground Personal Weather Stations (PWS).
  * Compatible with MagicMirror² v2.35.0+ weather module.
+ * v2.38.0 changed HTTPFetcher to `new HTTPFetcher({ url })`; this provider
+ * still accepts the v2.35–v2.37 `(url, options)` constructor as well.
  *
  * API: https://api.weather.com/v2/pws/observations/current
  * Docs: https://docs.magicmirror.builders/module-development/weather-provider.html
@@ -78,8 +80,12 @@ class PWSProvider {
 		this.#initializeFetcher();
 	}
 
-	start () {
-		this.fetcher?.startPeriodicFetch();
+	/**
+	 * @param {number} [initialDelay] - Delay before the first fetch in ms.
+	 *   MagicMirror 2.38 passes `config.initialLoadDelay` here.
+	 */
+	start (initialDelay = 0) {
+		this.fetcher?.startPeriodicFetch(initialDelay);
 	}
 
 	stop () {
@@ -88,17 +94,23 @@ class PWSProvider {
 
 	#initializeFetcher () {
 		const url = this.#getUrl();
-
-		this.fetcher = new HTTPFetcher(url, {
+		const fetcherOptions = {
 			reloadInterval: this.config.updateInterval,
 			headers: {
 				"Cache-Control": "no-cache",
 				Accept: "application/json"
 			},
 			logContext: "weatherprovider.pws"
-		});
+		};
+
+		this.fetcher = this.#createFetcher(url, fetcherOptions);
 
 		this.fetcher.on("response", async (response) => {
+			// 304 has no body. Keep the last observation on screen.
+			if (response.status === 304) {
+				return;
+			}
+
 			try {
 				const data = await response.json();
 				this.#handleResponse(data);
@@ -114,6 +126,26 @@ class PWSProvider {
 		this.fetcher.on("error", (errorInfo) => {
 			this.onErrorCallback?.(errorInfo);
 		});
+	}
+
+	/**
+	 * Build an HTTPFetcher for the current MagicMirror version.
+	 * v2.38+ takes one options object and throws unless `url` or `urlFactory`
+	 * is set. v2.35–v2.37 take `(url, options)`. The new signature's only
+	 * parameter has a default, so its constructor length is 0.
+	 * @param {string} url
+	 * @param {object} fetcherOptions
+	 * @returns {object}
+	 */
+	#createFetcher (url, fetcherOptions) {
+		if (HTTPFetcher.length === 0) {
+			return new HTTPFetcher({
+				...fetcherOptions,
+				url
+			});
+		}
+
+		return new HTTPFetcher(url, fetcherOptions);
 	}
 
 	#getUrl () {

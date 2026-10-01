@@ -3,7 +3,7 @@
 A [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror) module that displays real-time weather data from your __Personal Weather Station__ at [Weather Underground](https://www.wunderground.com).
 The **provider** can be used by the default weather module and other weather modules that support the `weatherProvider` configuration option.
 
-**Requires MagicMirror² v2.35.0+** for the weather provider (server-side provider API).
+**Requires MagicMirror² v2.35.0+** for the weather provider (server-side provider API). MagicMirror 2.38.0 changed `HTTPFetcher` so it must be constructed with `{ url }` or `{ urlFactory }`. This provider supports that constructor and the earlier `(url, options)` form.
 
 ## Screenshot
 ![MMM-PWSWeather](screenshots/ScreenshotPWSWeather.png)
@@ -140,6 +140,10 @@ This means your API key is invalid or incorrectly entered. Check that:
 ### Provider fails after upgrading MagicMirror to v2.35.0
 
 MagicMirror v2.35.0 removed the client-side `WeatherProvider.register(...)` API. Re-copy `pws.js` from this module (v2.0.0+) into `defaultmodules/weather/providers/` and restart MagicMirror.
+
+### `[weather] Failed to initialize weather provider pws: Error: Either url or urlFactory must be provided`
+
+MagicMirror 2.38.0 requires `url` or `urlFactory` inside the `HTTPFetcher` options object. Re-copy the current `pws.js` into `defaultmodules/weather/providers/` and restart MagicMirror. An older copy still calls `new HTTPFetcher(url, options)`, which the new constructor rejects.
 
 ## License
 

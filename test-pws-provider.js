@@ -9,6 +9,10 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const { EventEmitter } = require("node:events");
 
+// "modern" matches MagicMirror 2.38 (options object, constructor length 0).
+// "legacy" matches 2.35–2.37 `(url, options)` (constructor length 1).
+let fetcherApi = "modern";
+
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
 	if (request === "logger") {
@@ -30,15 +34,46 @@ Module._load = function (request, parent, isMain) {
 		};
 	}
 	if (request === "#http_fetcher") {
+		if (fetcherApi === "legacy") {
+			class LegacyHTTPFetcher extends EventEmitter {
+				constructor (url, options = {}) {
+					super();
+					if (typeof url !== "string") {
+						throw new Error("legacy fetcher expected a URL string");
+					}
+					this.url = url;
+					this.options = options;
+					LegacyHTTPFetcher.lastInstance = this;
+				}
+				startPeriodicFetch (initialDelay = 0) {
+					this.started = true;
+					this.initialDelay = initialDelay;
+				}
+				clearTimer () {
+					this.cleared = true;
+				}
+			}
+			LegacyHTTPFetcher.lastInstance = null;
+			globalThis.__MockHTTPFetcher = LegacyHTTPFetcher;
+			return LegacyHTTPFetcher;
+		}
+
+		// MagicMirror 2.38: a single options object. A positional URL string
+		// has neither url nor urlFactory and throws the production error.
 		class MockHTTPFetcher extends EventEmitter {
-			constructor (url, options) {
+			constructor (options = {}) {
 				super();
-				this.url = url;
 				this.options = options;
+				this.url = options.url || null;
+				this.urlFactory = options.urlFactory || null;
+				if (!this.url && !this.urlFactory) {
+					throw new Error("Either url or urlFactory must be provided");
+				}
 				MockHTTPFetcher.lastInstance = this;
 			}
-			startPeriodicFetch () {
+			startPeriodicFetch (initialDelay = 0) {
 				this.started = true;
+				this.initialDelay = initialDelay;
 			}
 			clearTimer () {
 				this.cleared = true;
@@ -51,7 +86,12 @@ Module._load = function (request, parent, isMain) {
 	return originalLoad.call(this, request, parent, isMain);
 };
 
-const PWSProvider = require("./pws.js");
+function loadProvider () {
+	delete require.cache[require.resolve("./pws.js")];
+	return require("./pws.js");
+}
+
+const PWSProvider = loadProvider();
 
 function makeObs (overrides = {}) {
 	return {
@@ -152,10 +192,17 @@ async function run () {
 
 		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
 		assert.ok(fetcher, "HTTPFetcher should be created");
+		assert.equal(typeof fetcher.url, "string");
 		assert.ok(fetcher.url.includes("stationId=KTEST123"));
 		assert.ok(fetcher.url.includes("apiKey="));
 		assert.ok(fetcher.url.includes("units=e"));
+		assert.equal(fetcher.options.url, fetcher.url);
+		assert.equal(fetcher.options.logContext, "weatherprovider.pws");
+		assert.equal(fetcher.options.reloadInterval, 60000);
+		assert.equal(fetcher.options.headers.Accept, "application/json");
+		assert.equal(fetcher.constructor.length, 0);
 		assert.equal(fetcher.started, true);
+		assert.equal(fetcher.initialDelay, 0);
 
 		const responseHandlers = fetcher.listeners("response");
 		assert.equal(responseHandlers.length, 1);
@@ -215,6 +262,58 @@ async function run () {
 		assert.equal(data.temperature, 21);
 		assert.ok(Math.abs(data.windSpeed - 5) < 0.01, `18 km/h -> 5 m/s, got ${data.windSpeed}`);
 		assert.equal(data.precipitationAmount, 5);
+	}
+
+	// 304 Not Modified has no body and must not surface as a parse error
+	{
+		let data = null;
+		let error = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, (err) => { error = err; });
+		provider.initialize();
+		provider.start(1500);
+
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		assert.equal(fetcher.initialDelay, 1500);
+		await fetcher.listeners("response")[0]({
+			status: 304,
+			json: async () => {
+				throw new Error("304 responses have no body");
+			}
+		});
+		assert.equal(data, null);
+		assert.equal(error, null);
+	}
+
+	// MagicMirror 2.35–2.37 still constructs HTTPFetcher as (url, options)
+	{
+		fetcherApi = "legacy";
+		const LegacyPWSProvider = loadProvider();
+		const provider = new LegacyPWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			units: "imperial",
+			updateInterval: 60000
+		});
+		provider.setCallbacks(() => {}, (err) => {
+			throw new Error(`unexpected provider error: ${err.message}`);
+		});
+		provider.initialize();
+		provider.start(2500);
+
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		assert.equal(fetcher.constructor.length, 1);
+		assert.equal(typeof fetcher.url, "string");
+		assert.ok(fetcher.url.includes("stationId=KTEST123"), fetcher.url);
+		assert.ok(fetcher.url.includes("units=e"), fetcher.url);
+		assert.equal(fetcher.options.logContext, "weatherprovider.pws");
+		assert.equal(fetcher.options.reloadInterval, 60000);
+		assert.equal(fetcher.initialDelay, 2500);
 	}
 
 	console.log("All pws provider tests passed");
