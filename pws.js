@@ -249,7 +249,7 @@ class PWSProvider {
 			uvIndex: obs.uv ?? null
 		};
 
-		const feelsLike = values.heatIndex ?? values.windChill ?? values.temp;
+		const feelsLike = this.#apparentTemperature(values, unitSystem);
 		if (feelsLike != null) {
 			current.feelsLikeTemp = this.#toCelsius(feelsLike, unitSystem);
 		}
@@ -342,6 +342,37 @@ class PWSProvider {
 		}
 
 		throw new Error("PWS observation is missing a unit measurement block");
+	}
+
+	/**
+	 * Pick wind chill or heat index using NWS-style thresholds.
+	 * Weather Underground always sends heatIndex (often equal to temp), so
+	 * preferring it hides wind chill. If neither applies, omit feelsLikeTemp
+	 * so MagicMirror can compute it from temp, wind, and humidity.
+	 * @param {object} values - Unit-block measurements
+	 * @param {string} unitSystem - imperial | metric | metric_si | uk_hybrid
+	 * @returns {number|null}
+	 */
+	#apparentTemperature (values, unitSystem) {
+		const temp = values.temp;
+		if (temp == null || Number.isNaN(temp)) {
+			return null;
+		}
+
+		const coldThreshold = unitSystem === "imperial" ? 50 : 10;
+		const hotThreshold = unitSystem === "imperial" ? 80 : 26.7;
+
+		const windChill = values.windChill;
+		if (temp <= coldThreshold && windChill != null && !Number.isNaN(windChill) && windChill < temp) {
+			return windChill;
+		}
+
+		const heatIndex = values.heatIndex;
+		if (temp >= hotThreshold && heatIndex != null && !Number.isNaN(heatIndex) && heatIndex > temp) {
+			return heatIndex;
+		}
+
+		return null;
 	}
 
 	#toCelsius (temp, unitSystem) {
