@@ -365,6 +365,87 @@ async function run () {
 		assert.deepEqual(delays, [1000, 3000]);
 	}
 
+	// Cold + wind: use wind chill even when heatIndex equals air temp
+	{
+		let data = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			apiUnits: "e"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, () => {});
+		provider.initialize();
+		const fetcher = globalThis.__MockHTTPFetcher.lastInstance;
+		await fetcher.listeners("response")[0]({
+			json: async () => makeObs({
+				imperial: {
+					temp: 49,
+					heatIndex: 49,
+					windChill: 45,
+					windSpeed: 9,
+					precipTotal: 0
+				}
+			})
+		});
+		const expectedChillC = ((45 - 32) * 5) / 9;
+		assert.ok(Math.abs(data.temperature - ((49 - 32) * 5) / 9) < 0.01);
+		assert.ok(data.feelsLikeTemp != null, "feelsLikeTemp should be set from wind chill");
+		assert.ok(Math.abs(data.feelsLikeTemp - expectedChillC) < 0.01, `expected wind chill ${expectedChillC}, got ${data.feelsLikeTemp}`);
+		assert.ok(data.feelsLikeTemp < data.temperature);
+	}
+
+	// Hot: use heat index when it is above air temp
+	{
+		let data = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			apiUnits: "e"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, () => {});
+		provider.initialize();
+		await globalThis.__MockHTTPFetcher.lastInstance.listeners("response")[0]({
+			json: async () => makeObs({
+				imperial: {
+					temp: 90,
+					heatIndex: 97,
+					windChill: 90,
+					windSpeed: 5,
+					precipTotal: 0
+				}
+			})
+		});
+		const expectedHeatC = ((97 - 32) * 5) / 9;
+		assert.ok(Math.abs(data.feelsLikeTemp - expectedHeatC) < 0.01, `expected heat index ${expectedHeatC}, got ${data.feelsLikeTemp}`);
+	}
+
+	// heatIndex == windChill == temp: omit feelsLikeTemp so MM can calculate
+	{
+		let data = null;
+		const provider = new PWSProvider({
+			apiKey: "x".repeat(32),
+			stationId: "KTEST123",
+			type: "current",
+			apiUnits: "e"
+		});
+		provider.setCallbacks((payload) => { data = payload; }, () => {});
+		provider.initialize();
+		await globalThis.__MockHTTPFetcher.lastInstance.listeners("response")[0]({
+			json: async () => makeObs({
+				imperial: {
+					temp: 49,
+					heatIndex: 49,
+					windChill: 49,
+					windSpeed: 9,
+					precipTotal: 0
+				}
+			})
+		});
+		assert.equal(data.feelsLikeTemp, undefined);
+	}
+
 	// 304 Not Modified has no body and must not surface as a parse error
 	{
 		let data = null;
